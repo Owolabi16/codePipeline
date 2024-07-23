@@ -1,0 +1,25 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto8
+    commands:
+      - echo "Installing Maven"
+      - yum install -y maven
+      - echo "Installing dependencies..."
+  build:
+    commands:
+      - echo "Building the project..."
+      - mvn clean install -f src/pom.xml
+  post_build:
+    commands:
+      - echo "Post-build phase..."
+      - mkdir -p deployment/scripts
+      - cp src/target/*.jar deployment/
+      - cp -r scripts/* deployment/scripts/
+artifacts:
+  files:
+    - deployment/*
+    - appspec.yml
+    - scripts/**
