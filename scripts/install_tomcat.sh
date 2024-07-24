@@ -3,7 +3,7 @@
 # Updating package list and installing dependencies
 echo "Updating package list and installing dependencies..."
 sudo apt-get update -y
-sudo apt-get install -y default-jdk
+sudo apt install -y java-common
 
 # Creating Tomcat user and group
 echo "Creating Tomcat user and group..."
@@ -20,7 +20,7 @@ sudo chown -RH tomcat: /opt/tomcat
 sudo sh -c 'chmod +x /opt/tomcat/bin/*.sh'
 
 # Configuring JAVA_HOME
-JAVA_HOME_PATH=$(update-java-alternatives -l | awk '{print $3}')
+JAVA_HOME_PATH=$(update-alternatives --query java | grep 'Value: ' | awk '{print $2}' | sed 's:/bin/java::')
 
 # Creating Tomcat systemd service file
 echo "Creating Tomcat systemd service file..."
