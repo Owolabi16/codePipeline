@@ -1,83 +1,30 @@
 #!/bin/bash
 
-set -e
-
-# Update package list and install dependencies
+# Updating package list and installing dependencies
 echo "Updating package list and installing dependencies..."
-sudo apt update -y
+sudo apt-get update -y
+sudo apt-get install -y default-jdk
 
-# Install Java
-echo "Installing Java..."
-wget https://download.oracle.com/java/21/latest/jdk-21_linux-x64_bin.deb
-sudo apt install -y ./jdk-21_linux-x64_bin.deb
-if ! java -version; then
-    echo "Java installation failed."
-    exit 1
-fi
-
-# Fetch the JAVA_HOME path from update-java-alternatives
-JAVA_HOME_PATH=$(sudo update-java-alternatives -l | awk '{print $3}')
-
-# Check if JAVA_HOME_PATH is empty
-if [ -z "$JAVA_HOME_PATH" ]; then
-    echo "JAVA_HOME path could not be determined. Exiting."
-    exit 1
-fi
-
-echo "JAVA_HOME is set to: $JAVA_HOME_PATH"
-
-# Create Tomcat group and user
+# Creating Tomcat user and group
 echo "Creating Tomcat user and group..."
-sudo groupadd -f tomcat
-sudo useradd -s /bin/false -g tomcat -d /opt/tomcat tomcat || true
+sudo useradd -m -U -d /opt/tomcat -s /bin/false tomcat
 
-# Download and install Tomcat
+# Downloading and installing Tomcat
 echo "Downloading and installing Tomcat..."
-cd /tmp
-curl -O https://dlcdn.apache.org/tomcat/tomcat-11/v11.0.0-M22/bin/apache-tomcat-11.0.0-M22.tar.gz
+wget https://downloads.apache.org/tomcat/tomcat-11/v11.0.0-M22/bin/apache-tomcat-11.0.0-M22.tar.gz
+sudo tar -xzvf apache-tomcat-11.0.0-M22.tar.gz -C /opt/tomcat --strip-components=1
 
-# Verify download
-if [ ! -f apache-tomcat-11.0.0-M22.tar.gz ]; then
-    echo "Tomcat download failed."
-    exit 1
-fi
+# Setting permissions
+echo "Setting permissions for Tomcat..."
+sudo chown -RH tomcat: /opt/tomcat
+sudo sh -c 'chmod +x /opt/tomcat/bin/*.sh'
 
-sudo mkdir -p /opt/tomcat
-sudo tar xzvf apache-tomcat-11.0.0-M22.tar.gz -C /opt/tomcat --strip-components=1
+# Configuring JAVA_HOME
+JAVA_HOME_PATH=$(update-java-alternatives -l | awk '{print $3}')
 
-# Verify extraction
-if [ ! -d /opt/tomcat/bin ]; then
-    echo "Tomcat extraction failed."
-    exit 1
-fi
-
-# Ensure the tomcat user has the correct permissions
-echo "Setting ownership for Tomcat directory..."
-sudo chown -R tomcat:tomcat /opt/tomcat
-
-echo "Listing contents of /opt/tomcat/bin:"
-sudo ls -la /opt/tomcat/bin
-
-# Set permissions
-echo "Setting permissions for Tomcat scripts..."
-sudo chmod +x /opt/tomcat/bin/*.sh || true
-
-# Verify permissions were set correctly
-echo "Verifying permissions on Tomcat scripts..."
-for script in /opt/tomcat/bin/*.sh; do
-    if [ -f "$script" ]; then
-        if ! sudo [ -x "$script" ]; then
-            echo "Failed to set execute permission on $script"
-            exit 1
-        fi
-    else
-        echo "Script $script not found."
-    fi
-done
-
-# Set up Tomcat as a systemd service
-echo "Creating Tomcat systemd service..."
-sudo bash -c 'cat << EOF > /etc/systemd/system/tomcat.service
+# Creating Tomcat systemd service file
+echo "Creating Tomcat systemd service file..."
+sudo tee /etc/systemd/system/tomcat.service <<EOF
 [Unit]
 Description=Apache Tomcat Web Application Container
 After=network.target
@@ -87,19 +34,19 @@ Type=forking
 User=tomcat
 Group=tomcat
 Environment="JAVA_HOME=$JAVA_HOME_PATH"
-Environment="JAVA_OPTS=-Djava.security.egd=file:///dev/urandom -Djava.awt.headless=true"
-Environment="CATALINA_BASE=/opt/tomcat"
-Environment="CATALINA_HOME=/opt/tomcat"
 Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
-Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+Environment="CATALINA_HOME=/opt/tomcat"
+Environment="CATALINA_BASE=/opt/tomcat"
 ExecStart=/opt/tomcat/bin/startup.sh
 ExecStop=/opt/tomcat/bin/shutdown.sh
+SuccessExitStatus=143
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
-EOF'
+EOF
 
-# Reload systemd daemon
+# Reloading systemd daemon
 echo "Reloading systemd daemon..."
 sudo systemctl daemon-reload
 
@@ -107,7 +54,7 @@ sudo systemctl daemon-reload
 echo "Enabling Tomcat service..."
 sudo systemctl enable tomcat
 
-# Checking if Tomcat service is enabled
+# Check if Tomcat service is enabled
 if systemctl is-enabled tomcat; then
     echo "Tomcat service enabled successfully."
 else
