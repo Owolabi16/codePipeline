@@ -103,17 +103,14 @@ EOF'
 echo "Reloading systemd daemon..."
 sudo systemctl daemon-reload
 
-# Start and enable Tomcat service
-echo "Starting and enabling Tomcat service..."
-sudo systemctl start tomcat
+# Enabling Tomcat service
+echo "Enabling Tomcat service..."
 sudo systemctl enable tomcat
 
-# Check if Tomcat is running
-if sudo systemctl status tomcat | grep -q "active (running)"; then
-    echo "Tomcat installed and running successfully."
+# Checking if Tomcat service is enabled
+if systemctl is-enabled tomcat; then
+    echo "Tomcat service enabled successfully."
 else
-    echo "Tomcat installation or startup failed."
-    sudo systemctl status tomcat
-    sudo journalctl -xeu tomcat.service
+    echo "Failed to enable Tomcat service."
     exit 1
 fi
